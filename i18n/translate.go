@@ -14,6 +14,46 @@ import (
 	"golang.org/x/text/language"
 )
 
+// FillObject maps each of the object's properties
+// with its corresponding translation key specified in the i18n tag.
+// Example:
+// 	type Person struct {
+// 		Name  string `i18n:"Person.Name"`
+// 		State string `i18n:"StateLabel"`
+// 	}
+func FillObject(spec interface{}) error {
+	s := reflect.ValueOf(spec)
+
+	if s.Kind() != reflect.Ptr {
+		return &InvalidSpecificationError{}
+	}
+	s = s.Elem()
+	if s.Kind() != reflect.Struct {
+		return &InvalidSpecificationError{}
+	}
+	typeOfSpec := s.Type()
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		ftype := typeOfSpec.Field(i)
+		if !f.CanSet() {
+			continue
+		}
+
+		if f.Kind() != reflect.String {
+			return &InvalidSpecificationError{}
+		}
+
+		key := ftype.Tag.Get("i18n")
+		if key == "" {
+			key = ftype.Name
+		}
+
+		f.SetString(Translate(key))
+	}
+
+	return nil
+}
+
 // Translate find a entry in the language used
 func Translate(key string) string {
 	if config.PathLangFiles == NotInitialized {
