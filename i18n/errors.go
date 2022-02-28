@@ -31,3 +31,12 @@ type LanguagesNotInitializedError struct{}
 func (e *LanguagesNotInitializedError) Error() string {
 	return "languages are not initialized"
 }
+
+// InvalidSpecificationError occurs when the specification is not a structure
+// pointer or one of its properties is not of type string
+type InvalidSpecificationError struct{}
+
+// Error return error message
+func (e *InvalidSpecificationError) Error() string {
+	return "specification must be a struct pointer and all its properties of type string"
+}
