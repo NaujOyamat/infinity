@@ -1,11 +1,28 @@
 package i18n
 
-var (
-	config Config
+import (
+	"github.com/NaujOyamat/infinity/logs"
+	"github.com/NaujOyamat/infinity/times"
+	"github.com/allegro/bigcache/v3"
 )
 
-func Init() {
+const (
+	NotInitialized = "..::-@#@-::.."
+)
+
+var (
+	config Config
+	logger logs.Logger
+)
+
+func init() {
 	config = Config{
-		PathLangFiles: "-@",
+		PathLangFiles: NotInitialized,
 	}
+	cache, err := bigcache.NewBigCache(bigcache.DefaultConfig(200 * times.Years))
+	if err != nil {
+		panic(err)
+	}
+	config.cacheMap = cache
+	logger = logs.NewLogrusLogger()
 }

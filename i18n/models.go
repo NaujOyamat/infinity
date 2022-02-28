@@ -1,10 +1,11 @@
 package i18n
 
-import "golang.org/x/text/language"
+import "github.com/allegro/bigcache/v3"
 
 type Config struct {
 	PathLangFiles string
 	DefaultLang   string
 	CurrentLang   string
-	langs         []language.Tag
+	langs         []string
+	cacheMap      *bigcache.BigCache
 }

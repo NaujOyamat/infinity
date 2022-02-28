@@ -1,11 +1,76 @@
 package i18n
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"io/ioutil"
+	"os"
+	"reflect"
 	"strings"
 
+	"github.com/NaujOyamat/infinity/utils"
+	"github.com/allegro/bigcache/v3"
 	"golang.org/x/text/language"
 )
+
+// Translate find a entry in the language used
+func Translate(key string) string {
+	if config.PathLangFiles == NotInitialized {
+		panic(&LanguagesNotInitializedError{})
+	}
+
+	key = strings.Trim(key, " ")
+
+	entry, err := config.cacheMap.Get(fmt.Sprintf("%s:%s", config.CurrentLang, key))
+	if err != nil {
+		if errors.Is(err, bigcache.ErrEntryNotFound) {
+			entry, err = config.cacheMap.Get(fmt.Sprintf("%s:%s", config.DefaultLang, key))
+			if err != nil {
+				logger.Errorf("entry not fount (%s)", key)
+				return ""
+			}
+			return string(entry)
+		}
+		logger.Errorf("error %s", err.Error())
+		return ""
+	}
+	return string(entry)
+}
+
+// SetDefaultLang set a language loaded in memory as default
+func SetDefaultLang(lang string) error {
+	for _, l := range config.langs {
+		if strings.EqualFold(l, lang) {
+			config.DefaultLang = lang
+			return nil
+		}
+	}
+
+	return &LanguageNotFoundError{}
+}
+
+// DefaultLang return the default language
+func DefaultLang() string {
+	return config.DefaultLang
+}
+
+// SetCurrentLang set a language loaded in memory to use
+func SetCurrentLang(lang string) error {
+	for _, l := range config.langs {
+		if strings.EqualFold(l, lang) {
+			config.CurrentLang = lang
+			return nil
+		}
+	}
+
+	return &LanguageNotFoundError{}
+}
+
+// CurrentLang return the current language
+func CurrentLang() string {
+	return config.CurrentLang
+}
 
 // Load apply the configuration to load language messages
 func Load(c Config) error {
@@ -22,7 +87,12 @@ func Load(c Config) error {
 				return err
 			}
 
-			c.langs = append(c.langs, lang)
+			err = loadFile(lang.String(), fmt.Sprintf("%s/%s", c.PathLangFiles, f.Name()))
+			if err != nil {
+				return err
+			}
+
+			c.langs = append(c.langs, lang.String())
 
 			if lang.String() == c.DefaultLang {
 				defaultExists = true
@@ -34,17 +104,72 @@ func Load(c Config) error {
 	}
 
 	if len(c.langs) == 0 {
-		return &NotFoundLanguagesError{}
+		return &LanguageFileNotFoundError{}
 	}
 
 	if !defaultExists {
-		c.DefaultLang = c.langs[0].String()
+		c.DefaultLang = c.langs[0]
 	}
 	if !currentExists {
 		c.CurrentLang = c.DefaultLang
 	}
 
+	setConfig(c)
+
+	return nil
+}
+
+// setConfig set config properties
+func setConfig(c Config) {
+	c.cacheMap = config.cacheMap
 	config = c
+}
+
+// loadFile load content file to load keys in memory
+func loadFile(tag string, fpath string) error {
+	jsonFile, err := os.Open(fpath)
+	if err != nil {
+		return err
+	}
+	defer jsonFile.Close()
+
+	bytesValue, err := ioutil.ReadAll(jsonFile)
+	if err != nil {
+		return err
+	}
+
+	var result map[string]interface{}
+	err = json.Unmarshal(bytesValue, &result)
+	if err != nil {
+		return err
+	}
+
+	err = loadKeys(tag, "", result)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// loadKeys load keys from map to memory
+func loadKeys(tag string, prefix string, data map[string]interface{}) error {
+	if prefix != "" {
+		prefix = fmt.Sprintf("%s.", prefix)
+	}
+
+	for k, v := range data {
+		key := fmt.Sprintf("%s%s", prefix, k)
+		vType := reflect.TypeOf(v)
+		if vType.String() == "map[string]interface {}" {
+			err := loadKeys(tag, key, v.(map[string]interface{}))
+			if err != nil {
+				return err
+			}
+		} else {
+			config.cacheMap.Append(fmt.Sprintf("%s:%s", tag, key), []byte(utils.ConvertToString(v)))
+		}
+	}
 
 	return nil
 }
