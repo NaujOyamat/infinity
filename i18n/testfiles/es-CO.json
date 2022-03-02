@@ -1,0 +1,10 @@
+{
+  "LoginPage": {
+    "Title": "Bienvenido a Wirvi",
+    "LoginForm": {
+      "Title": "Inicio de Sesión",
+      "EmailLabel": "Correo Electrónico",
+      "PasswdLabel": "Contraseña"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "LoginPage": {
+    "Title": "Wellcome to Wirvi",
+    "LoginForm": {
+      "Title": "Login",
+      "EmailLabel": "Email",
+      "PasswdLabel": "Password"
+    }
+  }
+}
