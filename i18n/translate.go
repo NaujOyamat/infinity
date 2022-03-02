@@ -28,6 +28,13 @@ func FillObject(spec interface{}) error {
 		return &InvalidSpecificationError{}
 	}
 	s = s.Elem()
+
+	return fillObject(s)
+}
+
+// fillObject recursive func to iterate properties
+func fillObject(s reflect.Value) error {
+
 	if s.Kind() != reflect.Struct {
 		return &InvalidSpecificationError{}
 	}
@@ -35,20 +42,33 @@ func FillObject(spec interface{}) error {
 	for i := 0; i < s.NumField(); i++ {
 		f := s.Field(i)
 		ftype := typeOfSpec.Field(i)
-		if !f.CanSet() {
-			continue
+
+		for f.Kind() == reflect.Ptr {
+			if f.IsNil() {
+				if f.Type().Elem().Kind() != reflect.Struct {
+					// nil pointer to a non-struct: leave it alone
+					break
+				}
+				// nil pointer to struct: create a zero instance
+				f.Set(reflect.New(f.Type().Elem()))
+			}
+			f = f.Elem()
 		}
 
-		if f.Kind() != reflect.String {
-			return &InvalidSpecificationError{}
-		}
+		if f.Kind() == reflect.String {
+			if !f.CanSet() || utils.IsTrue(ftype.Tag.Get("ignored")) {
+				continue
+			}
 
-		key := ftype.Tag.Get("i18n")
-		if key == "" {
-			key = ftype.Name
-		}
+			key := ftype.Tag.Get("i18n")
+			if key == "" {
+				key = ftype.Name
+			}
 
-		f.SetString(Translate(key))
+			f.SetString(Translate(key))
+		} else if err := fillObject(f); err != nil {
+			return err
+		}
 	}
 
 	return nil
